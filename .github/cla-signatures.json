@@ -1,0 +1,191 @@
+[
+  {
+    "file": "test/cortex.jpg",
+    "github_username": "Beherith",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "signed_at": "2026-05-11T20:40:33.999Z",
+    "source": "confirm-license-command",
+    "pr": 18
+  },
+  {
+    "file": "test/cursorattack_3.png",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-12T11:56:45.160Z",
+    "source": "confirm-license-command",
+    "pr": 19
+  },
+  {
+    "file": "test/cursorcapture_42.png",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-12T11:56:45.160Z",
+    "source": "confirm-license-command",
+    "pr": 19
+  },
+  {
+    "file": "test/cortex2.jpg",
+    "github_username": "lostsquirrel1",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "signed_at": "2026-05-12T16:01:33.877Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 20,
+    "confirmed_at": "2026-05-12T16:06:36.549Z"
+  },
+  {
+    "file": "test/cursorareamex_51.png",
+    "github_username": "lostsquirrel1",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "signed_at": "2026-05-13T14:18:01.582Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 21,
+    "confirmed_at": "2026-05-13T14:19:11.695Z"
+  },
+  {
+    "file": "music/test/artshell-large.s3o",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/candycane.s3o",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/cortex2.jpg",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/cursorareamex_51.png",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/cursorareamex_9.png",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/cursorattack_3.png",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/cursorcapture_42.png",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/noop",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/nothing.txt",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/somethingelse.cpp",
+    "github_username": "lostsquirrel1",
+    "license": "CC-BY-SA-4.0",
+    "signed_at": "2026-05-13T14:35:53.932Z",
+    "status": "confirmed",
+    "source": "confirm-license-command",
+    "pr": 22,
+    "confirmed_at": "2026-05-13T14:36:53.341Z"
+  },
+  {
+    "file": "music/test/cortex20.jpg",
+    "github_username": "PtaQQ",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "signed_at": "2026-05-13T15:50:08.085Z",
+    "status": "intent",
+    "source": "confirm-license-command",
+    "pr": 25,
+    "proxy_submitter": "lostsquirrel1",
+    "proxy_status": "confirmed",
+    "authorship_confirmed_at": "2026-05-13T15:51:36.912Z"
+  },
+  {
+    "file": "music/test/cursorcapture_47.png",
+    "github_username": "PtaQQ",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "signed_at": "2026-05-13T15:50:08.085Z",
+    "status": "intent",
+    "source": "confirm-license-command",
+    "pr": 25,
+    "proxy_submitter": "lostsquirrel1",
+    "proxy_status": "confirmed",
+    "authorship_confirmed_at": "2026-05-13T15:51:36.912Z"
+  },
+  {
+    "file": "music/test/cursorcapture_471.png",
+    "github_username": "PtaQQ",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "signed_at": "2026-05-19T18:13:46.802Z",
+    "status": "intent",
+    "source": "confirm-license-command",
+    "pr": 26,
+    "proxy_submitter": "lostsquirrel1",
+    "proxy_status": "confirmed",
+    "authorship_confirmed_at": "2026-05-19T20:07:17.862Z"
+  },
+  {
+    "file": "music/test/cursorcapture_470.png",
+    "github_username": "lostsquirrel1",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "signed_at": "2026-05-20T10:23:42.615Z",
+    "status": "intent",
+    "source": "confirm-license-command",
+    "pr": 27
+  }
+]

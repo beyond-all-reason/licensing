@@ -1,0 +1,60 @@
+DRAFT: not yet reviewed by BAR's counsel. Do not record files under this identifier in a public
+repository until the text is approved; `ledger lint` treats it as release-only until `draft` is
+removed from the catalogue entry.
+
+BAR Team B.V. Proprietary Asset Terms
+Version 1.0
+
+SPDX-License-Identifier: LicenseRef-BAR-Proprietary-1.0
+
+This file is owned by BAR Team B.V. ("BAR"), Oldenzaal, the Netherlands. It
+was created for the video game Beyond All Reason under a written agreement
+that transfers the economic rights in it to BAR, or it was created by BAR
+itself. The person credited as its author in the licensing ledger and in the
+game credits retains authorship credit; BAR holds the rights.
+
+1. What you may do
+
+   You may use this file as it appears inside Beyond All Reason and projects
+   derived from Beyond All Reason that are approved by BAR ("BAR projects"),
+   including:
+
+   a. playing the game and distributing it as released by BAR;
+   b. showing it as it appears in normal gameplay in screenshots, videos,
+      streams, reviews, commentary and similar coverage of the game;
+   c. using it in modifications ("mods") that run within Beyond All Reason
+      and are distributed through platforms approved by BAR for that purpose;
+   d. modifying it for the purposes in (a) to (c), and submitting those
+      modifications to BAR's repositories under BAR's contribution policy.
+
+2. What you may not do
+
+   a. extract this file, or a work derived from it, for use outside BAR
+      projects, including in other games, asset packs, printed goods or
+      merchandise;
+   b. sell, rent, sublicense or otherwise distribute it separately from a BAR
+      project;
+   c. remove or alter the authorship credit, or present the work as your own;
+   d. use it to suggest endorsement by BAR or by the credited author.
+
+3. Credit
+
+   Keep the author credit recorded in the licensing ledger wherever credits
+   are given for the BAR project in which the file is used.
+
+4. Other licences
+
+   These terms apply only to files marked with this identifier. Files marked
+   with another SPDX identifier (for example GPL-2.0-or-later, CC-BY-SA-4.0 or
+   LicenseRef-BAR-CLA-1.0) are governed by that licence. Nothing here limits
+   rights in the Recoil engine or any other material released under an
+   open-source licence.
+
+5. No warranty
+
+   The file is provided "as is", without warranty of any kind.
+
+6. Permissions beyond these terms
+
+   BAR may grant additional permissions in writing. Requests go to
+   licensing@beyondallreason.info.

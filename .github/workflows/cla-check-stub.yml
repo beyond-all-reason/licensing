@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: CLA Check
+
+# Consumer stub: copy to .github/workflows/cla-check.yml and point `uses:` at
+# beyond-all-reason/licensing/.github/workflows/cla-check.yml@main.
+# Here it calls the local file so this repository tests the reusable workflow itself.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, closed]
+  issue_comment:
+    types: [created]
+
+jobs:
+  cla:
+    uses: ./.github/workflows/cla-check.yml
+    permissions:
+      contents: write
+      pull-requests: write
+      statuses: write
+      issues: write
+    secrets:
+      CLA_BOT_TOKEN: ${{ secrets.CLA_BOT_TOKEN }}

@@ -1,0 +1,1 @@
+# BAR License Auditor package

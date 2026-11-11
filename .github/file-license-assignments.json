@@ -1,0 +1,124 @@
+[
+  {
+    "contributor": "lostsquirrel1",
+    "date": "2026-05-13",
+    "file": "music/test/artshell-large.s3o",
+    "license": "CC-BY-SA-4.0",
+    "pr": 22
+  },
+  {
+    "contributor": "lostsquirrel1",
+    "date": "2026-05-13",
+    "file": "music/test/candycane.s3o",
+    "license": "CC-BY-SA-4.0",
+    "pr": 22
+  },
+  {
+    "contributor": "PtaQtester",
+    "date": "2026-05-18T20:26:37Z",
+    "file": "music/test/candycane2.s3o",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "pr": "manual-audit",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "lostsquirrel1",
+    "date": "2026-05-13",
+    "file": "music/test/cortex2.jpg",
+    "license": "CC-BY-SA-4.0",
+    "pr": 22
+  },
+  {
+    "file": "music/test/cortex20.jpg",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "contributor": "PtaQQ",
+    "pr": "25",
+    "date": "2026-05-19T14:23:04Z",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "Beherith",
+    "date": "2026-05-16T16:57:24Z",
+    "file": "music/test/cursorareamex_51.png",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "pr": "22",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "Beherith",
+    "date": "2026-05-19T14:17:28Z",
+    "file": "music/test/cursorareamex_9.png",
+    "license": "MIT",
+    "pr": "22",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "Beherith",
+    "date": "2026-05-19T14:17:28Z",
+    "file": "music/test/cursorattack_3.png",
+    "license": "MIT",
+    "pr": "22",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "Beherith",
+    "date": "2026-05-19T14:17:59Z",
+    "file": "music/test/cursorcapture_42.png",
+    "license": "GPL-2.0-or-later",
+    "pr": "22",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "PtaQQ",
+    "date": "2026-05-19T14:17:59Z",
+    "file": "music/test/cursorcapture_47.png",
+    "license": "GPL-2.0-or-later",
+    "pr": "25",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "lostsquirrel1",
+    "date": "2026-05-16T16:30:24Z",
+    "file": "music/test/cursorcapture_48.png",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "pr": "manual-audit",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "Beherith",
+    "date": "2026-05-16T16:57:24Z",
+    "file": "music/test/noop",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "pr": "manual-audit",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "lostsquirrel1",
+    "date": "2026-05-13",
+    "file": "music/test/nothing.txt",
+    "license": "CC-BY-SA-4.0",
+    "pr": 22
+  },
+  {
+    "contributor": "lostsquirrel1",
+    "date": "2026-05-19T14:16:05Z",
+    "file": "music/test/somethingelse.cpp",
+    "license": "CC-BY-SA-4.0",
+    "pr": "22",
+    "source": "manual-audit"
+  },
+  {
+    "contributor": "lostsquirrel1",
+    "date": "2026-05-12",
+    "file": "test/cortex2.jpg",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "pr": 20
+  },
+  {
+    "contributor": "lostsquirrel1",
+    "date": "2026-05-13",
+    "file": "test/cursorareamex_51.png",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "pr": 21
+  }
+]
