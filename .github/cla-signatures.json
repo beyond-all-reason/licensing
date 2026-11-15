@@ -187,15 +187,5 @@
     "status": "intent",
     "source": "confirm-license-command",
     "pr": 27
-  },
-  {
-    "file": "music/test/stub_test.png",
-    "status": "confirmed",
-    "pr": 1,
-    "github_username": "PtaQQ",
-    "license": "LicenseRef-BAR-CLA-1.0",
-    "signed_at": "2026-11-15T12:55:02.407Z",
-    "source": "confirm-license-command",
-    "confirmed_at": "2026-11-15T12:56:38.430Z"
   }
 ]
