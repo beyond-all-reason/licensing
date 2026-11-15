@@ -144,6 +144,11 @@ calls the local file, which lets a PR in this repository exercise the bot.
 `tools/check_workflow.py` also checks that every job of a `workflow_call` workflow
 has a permissions block and that every secret it reads is declared.
 
+The four jobs that commit to the default branch share one concurrency group
+with `queue: max`, so they run one at a time and none is dropped. They check
+out only `.github/`, the manifests and the flags file, which keeps a run to
+seconds on a large repository.
+
 ### Secrets
 
 - **`CLA_BOT_TOKEN`** (optional): token of the bot identity (GitHub App installation
@@ -458,9 +463,15 @@ license. Authors answer on a GitHub issue instead of a PR:
 2. The author replies `/confirm-license cla` or `/confirm-license cc-by-sa`
    (any id from `pr_choices` also works). `/confirm-license` alone lists the
    options and how many files are waiting.
-3. Job 8 (`consent-on-issue`) sets that license on every awaiting row credited
-   to the commenter, records the issue number as `pr` and `source: "consent-issue"`,
-   regenerates the affected manifests, commits and replies with a per-folder count.
+3. Job 8 (`consent-on-issue`) posts a ⏳ placeholder at once, sets that license
+   on every awaiting row credited to the commenter, records the issue number as
+   `pr` and `source: "consent-issue"`, regenerates the affected manifests and
+   commits. Once the push has landed it replaces the placeholder with a
+   per-folder count, or with a request to repeat the command if the job failed.
+
+The issue body and the bot's replies take the command lines from the same
+`licensing.json` entries (`name`, `consent_blurb` or `blurb`, `doc`), so they
+read alike.
 
 The commenter's GitHub login must match the ledger `contributor` value, or be
 mapped to it in `.github/contributors.json`:

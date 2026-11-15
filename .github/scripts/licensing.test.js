@@ -95,6 +95,17 @@ assert.deepStrictEqual(lib.parseConsentChoice('/confirm-license CC-BY-SA-4.0', c
 assert.deepStrictEqual(lib.parseConsentChoice('/confirm-license', cfg), { license: null, missing: true });
 assert.deepStrictEqual(lib.parseConsentChoice('/confirm-license mit', cfg), { license: null, missing: false });
 assert.strictEqual(lib.parseConsentChoice('thanks', cfg), null);
+assert.strictEqual(lib.consentAlias('LicenseRef-BAR-CLA-1.0'), 'cla');
+assert.strictEqual(lib.consentAlias('CC-BY-SA-4.0'), 'cc-by-sa');
+assert.strictEqual(lib.consentAlias('MIT'), 'MIT');
+const choiceLines = lib.consentChoiceLines(cfg, 'https://example.org/r/blob/main');
+assert.strictEqual(choiceLines.length, cfg.pr_choices.length);
+assert.ok(choiceLines[0].startsWith('- `/confirm-license cla` — **BAR Project License (CLA)**: '));
+assert.ok(choiceLines[0].endsWith('([details](https://example.org/r/blob/main/legal/CLA_SUMMARY.md))'));
+for (const line of choiceLines) {
+  const word = line.match(/confirm-license (\S+)`/)[1];
+  assert.ok(lib.parseConsentChoice(`/confirm-license ${word}`, cfg).license, `${word} must parse`);
+}
 const consentLedgers = {
   signatures: [],
   assignments: [

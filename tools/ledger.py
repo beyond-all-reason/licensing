@@ -303,6 +303,23 @@ def cmd_rebase(repo: Path, old: str, new: str, apply: bool, drop_missing: bool) 
     return 0
 
 
+# Words shown after /confirm-license; licensing.js keeps the same pair.
+CONSENT_ALIAS = {"LicenseRef-BAR-CLA-1.0": "cla", "CC-BY-SA-4.0": "cc-by-sa"}
+
+
+def _consent_choice_lines(repo: Path) -> list[str]:
+    """One command line per PR choice, worded as the bot's own reply."""
+    cfg = D.load_config(repo)
+    licenses = cfg.get("licenses") or {}
+    lines = []
+    for lid in cfg.get("pr_choices") or list(CONSENT_ALIAS):
+        meta = licenses.get(lid) or {}
+        doc = f" ([details](../blob/HEAD/{meta['doc']}))" if meta.get("doc") else ""
+        blurb = meta.get("consent_blurb") or meta.get("blurb") or ""
+        lines.append(f"- `/confirm-license {CONSENT_ALIAS.get(lid, lid)}` — **{meta.get('name') or lid}**: {blurb}{doc}")
+    return lines
+
+
 def cmd_consent_body(repo: Path, contributors: list[str], github: str, out: Path | None) -> int:
     """Print the body for a consent issue addressed to one contributor."""
     ap, _, _ = _paths(repo)
@@ -326,11 +343,7 @@ def cmd_consent_body(repo: Path, contributors: list[str], github: str, out: Path
         "",
         "Reply to this issue with **one** of these commands:",
         "",
-        "- `/confirm-license cla` — **BAR Project License (CLA)**: BAR may use the work as part of the game, "
-        "in trailers, streams and approved mods; it stays restricted to BAR; you keep your copyright. "
-        "([summary](../blob/master/legal/CLA_SUMMARY.md), [full text](../blob/master/legal/CLA.md))",
-        "- `/confirm-license cc-by-sa` — **CC-BY-SA 4.0**: anyone may reuse the work with attribution under the same license; "
-        "you keep your copyright. ([details](../blob/master/legal/CC-BY-SA-OPT-IN.md))",
+        *_consent_choice_lines(repo),
         "",
         "Either choice covers all of your past contributions listed here. If some files are not yours, "
         "or were built from purchased or third-party material, say so in a comment instead of confirming.",

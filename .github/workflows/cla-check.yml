@@ -349,6 +349,10 @@ jobs:
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request
     runs-on: ubuntu-latest
+    # Commands queue behind other ledger writes; ordinary comments do not wait.
+    concurrency:
+      group: ${{ startsWith(github.event.comment.body, '/confirm-') && format('cla-ledger-{0}', github.repository) || format('cla-comment-{0}', github.run_id) }}
+      queue: max
     permissions:
       contents: write
       pull-requests: write
@@ -402,6 +406,11 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.CLA_BOT_TOKEN || github.token }}
           ssh-key: ${{ secrets.CLA_PUSH_SSH_KEY }}
+          sparse-checkout: |
+            /.github/
+            LICENSE_MANIFEST.md
+            /license_comments_flags.json
+          sparse-checkout-cone-mode: false
 
       - name: Checkout licensing scripts (central repository)
         if: >-
@@ -563,7 +572,7 @@ jobs:
           git config user.email "$BOT_EMAIL"
           git add .github/cla-signatures.json
           git commit -m "CLA: Record intent ($CL_SUMMARY) for $CL_AUTHOR - PR #$CL_PR (pending merge)"
-          git push
+          git push || { git pull --rebase && git push; }
 
       - name: Post confirm-license result
         if: steps.confirm-license.outputs.cl_recorded == 'true'
@@ -699,7 +708,7 @@ jobs:
           git config user.email "$BOT_EMAIL"
           git add .github/cla-signatures.json
           git commit -m "CLA: Authorship confirmed by $CA_COMMENTER - PR #$CA_PR"
-          git push
+          git push || { git pull --rebase && git push; }
 
       - name: Post authorship confirmation result
         if: steps.confirm-authorship.outputs.ca_recorded == 'true'
@@ -759,6 +768,9 @@ jobs:
       github.event.action == 'closed' &&
       github.event.pull_request.merged == false
     runs-on: ubuntu-latest
+    concurrency:
+      group: cla-ledger-${{ github.repository }}
+      queue: max
     permissions:
       contents: write
       pull-requests: write
@@ -769,6 +781,11 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.CLA_BOT_TOKEN || github.token }}
           ssh-key: ${{ secrets.CLA_PUSH_SSH_KEY }}
+          sparse-checkout: |
+            /.github/
+            LICENSE_MANIFEST.md
+            /license_comments_flags.json
+          sparse-checkout-cone-mode: false
 
       - name: Checkout licensing scripts (central repository)
         uses: actions/checkout@v4
@@ -816,7 +833,7 @@ jobs:
           git config user.email "$BOT_EMAIL"
           git add .github/cla-signatures.json
           git commit -m "CLA: Remove intent signatures for $PR_AUTHOR - PR #$PR_NUMBER closed without merge"
-          git push
+          git push || { git pull --rebase && git push; }
 
   # Job 7: on merge, apply renames, promote intents to the file ledger, regenerate manifests
   confirm-on-merge:
@@ -825,6 +842,9 @@ jobs:
       github.event.action == 'closed' &&
       github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    concurrency:
+      group: cla-ledger-${{ github.repository }}
+      queue: max
     permissions:
       contents: write
     steps:
@@ -834,6 +854,11 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.CLA_BOT_TOKEN || github.token }}
           ssh-key: ${{ secrets.CLA_PUSH_SSH_KEY }}
+          sparse-checkout: |
+            /.github/
+            LICENSE_MANIFEST.md
+            /license_comments_flags.json
+          sparse-checkout-cone-mode: false
 
       - name: Checkout licensing scripts (central repository)
         uses: actions/checkout@v4
@@ -911,7 +936,7 @@ jobs:
             [ -n "$m" ] && git add "$m"
           done <<< "$MANIFESTS"
           git commit -m "CLA: Confirm license assignment for $PR_AUTHOR - PR #$PR_NUMBER merged"
-          git push
+          git push || { git pull --rebase && git push; }
 
   # Job 8: retroactive consent given with /confirm-license on an issue
   consent-on-issue:
@@ -920,16 +945,36 @@ jobs:
       !github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/confirm-license')
     runs-on: ubuntu-latest
+    concurrency:
+      group: cla-ledger-${{ github.repository }}
+      queue: max
     permissions:
       contents: write
       issues: write
     steps:
+      - name: Acknowledge the command
+        id: ack
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (!/^\/confirm-license(?:\s+\S+)?\s*$/i.test((context.payload.comment.body || '').trim())) return;
+            const { data } = await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.payload.issue.number,
+              body: `<!-- BAR-CLA-BOT -->\n⏳ @${context.payload.comment.user.login} — working on it, this takes a moment.`,
+            });
+            core.setOutput('comment_id', String(data.id));
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.CLA_BOT_TOKEN || github.token }}
           ssh-key: ${{ secrets.CLA_PUSH_SSH_KEY }}
+          sparse-checkout: |
+            /.github/
+            LICENSE_MANIFEST.md
+            /license_comments_flags.json
+          sparse-checkout-cone-mode: false
 
       - name: Checkout licensing scripts (central repository)
         uses: actions/checkout@v4
@@ -953,26 +998,19 @@ jobs:
             const login = context.payload.comment.user.login;
             const branch = context.payload.repository.default_branch;
             const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
-            const say = body => github.rest.issues.createComment({
-              owner: context.repo.owner, repo: context.repo.repo, issue_number: issue, body: `<!-- BAR-CLA-BOT -->\n${body}`,
-            });
             core.setOutput('changed', 'false');
 
             const choice = lib.parseConsentChoice(context.payload.comment.body, cfg);
             if (!choice) return;
-            const names = lib.ledgerNamesFor(login, cfg);
+            const names = lib.ledgerNamesFor(login, cfg).map(n => `\`${n}\``).join(', ');
             const rows = lib.awaitingRowsFor(login, ledgers, cfg);
-            const usage = cfg.pr_choices.map(id => {
-              const l = cfg.licenses[id] || {};
-              const doc = l.doc ? ` ([details](${repoUrl}/blob/${branch}/${l.doc}))` : '';
-              return `- \`/confirm-license ${id}\` — **${l.name || id}**: ${l.blurb || ''}${doc}`;
-            }).join('\n');
             if (rows.length === 0) {
-              await say(`@${login} — no files are waiting for your consent under the name(s) ${names.map(n => `\`${n}\``).join(', ')}. If your work is recorded under another name, ask a maintainer to add it to \`.github/contributors.json\`.`);
+              core.setOutput('reply', `@${login} — no files are waiting for your consent under the name(s) ${names}. If your work is recorded under another name, ask a maintainer to add it to \`.github/contributors.json\`.`);
               return;
             }
             if (!choice.license) {
-              await say(`@${login} — ${rows.length} file(s) credited to ${names.map(n => `\`${n}\``).join(', ')} are waiting for your choice. Reply with one of:\n\n${usage}\n\nEither choice covers all of your past contributions listed in this repository's manifests; you keep your copyright.`);
+              const usage = lib.consentChoiceLines(cfg, `${repoUrl}/blob/${branch}`).join('\n');
+              core.setOutput('reply', `@${login} — ${rows.length} file(s) credited to ${names} are waiting for your choice. Reply with one of:\n\n${usage}\n\nEither choice covers all of your past contributions listed in this repository's manifests.`);
               return;
             }
 
@@ -994,7 +1032,7 @@ jobs:
               perTop[t] = (perTop[t] || 0) + 1;
             }
             const summary = Object.entries(perTop).sort().map(([t, n]) => `- \`${t}/\`: ${n}`).join('\n');
-            await say(`✅ @${login} — **${lib.licenseName(choice.license, cfg)}** recorded for ${rows.length} file(s) credited to ${names.map(n => `\`${n}\``).join(', ')}:\n\n${summary}\n\nThe per-folder manifests will list the license once the bot's commit lands. Thank you!`);
+            core.setOutput('reply', `✅ @${login} — **${lib.licenseName(choice.license, cfg)}** recorded for ${rows.length} file(s) credited to ${names}:\n\n${summary}\n\nThe per-folder manifests list the license now. Thank you!`);
 
       - name: Commit consent
         if: steps.consent.outputs.changed == 'true'
@@ -1013,4 +1051,21 @@ jobs:
             [ -n "$m" ] && git add "$m"
           done <<< "$MANIFESTS"
           git commit -m "CLA: Retroactive consent ($CONSENT_LICENSE) from $CONSENT_LOGIN for $CONSENT_COUNT file(s) - issue #$ISSUE_NUMBER"
-          git push
+          git push || { git pull --rebase && git push; }
+
+      # The answer is a new comment so it notifies; the placeholder goes.
+      - name: Reply
+        if: always() && steps.ack.outputs.comment_id
+        uses: actions/github-script@v7
+        env:
+          REPLY: ${{ steps.consent.outputs.reply }}
+          ACK_ID: ${{ steps.ack.outputs.comment_id }}
+          JOB_OK: ${{ job.status == 'success' }}
+        with:
+          script: |
+            const login = context.payload.comment.user.login;
+            const failed = `⚠️ @${login} — your choice could not be recorded. Post the command again; a maintainer will look at it if that fails too.`;
+            const body = process.env.JOB_OK === 'true' && process.env.REPLY ? process.env.REPLY : failed;
+            const at = { owner: context.repo.owner, repo: context.repo.repo };
+            await github.rest.issues.createComment({ ...at, issue_number: context.payload.issue.number, body: `<!-- BAR-CLA-BOT -->\n${body}` });
+            await github.rest.issues.deleteComment({ ...at, comment_id: Number(process.env.ACK_ID) });

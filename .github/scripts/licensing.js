@@ -4,6 +4,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const DEFAULT_CONFIG = {
   art_dirs: ['anims', 'bitmaps', 'fonts', 'icons', 'modelmaterials', 'modelmaterials_gl4',
@@ -239,14 +240,29 @@ function awaitingRowsFor(login, ledgers, cfg) {
   return ledgers.assignments.filter(a => !a.license && names.has((a.contributor || '').toLowerCase()));
 }
 
+// Short words accepted after /confirm-license; the first one per license is shown to people.
+const CONSENT_ALIASES = { cla: 'LicenseRef-BAR-CLA-1.0', 'cc-by-sa': 'CC-BY-SA-4.0', 'bar-cla': 'LicenseRef-BAR-CLA-1.0', cc: 'CC-BY-SA-4.0' };
+
+function consentAlias(id) {
+  return Object.keys(CONSENT_ALIASES).find(k => CONSENT_ALIASES[k] === id) || id;
+}
+
+// One "/confirm-license <choice>" line per pr_choice; docBase is the URL prefix of the repo root.
+function consentChoiceLines(cfg, docBase) {
+  return cfg.pr_choices.map(id => {
+    const l = cfg.licenses[id] || {};
+    const doc = l.doc ? ` ([details](${docBase}/${l.doc}))` : '';
+    return `- \`/confirm-license ${consentAlias(id)}\` — **${l.name || id}**: ${l.consent_blurb || l.blurb || ''}${doc}`;
+  });
+}
+
 // Resolves "/confirm-license <choice>" to a license id from pr_choices.
 function parseConsentChoice(body, cfg) {
   const m = (body || '').trim().match(/^\/confirm-license(?:\s+(\S+))?\s*$/i);
   if (!m) return null;
   const arg = (m[1] || '').toLowerCase();
   if (!arg) return { license: null, missing: true };
-  const aliases = { cla: 'LicenseRef-BAR-CLA-1.0', 'bar-cla': 'LicenseRef-BAR-CLA-1.0', cc: 'CC-BY-SA-4.0', 'cc-by-sa': 'CC-BY-SA-4.0' };
-  const id = aliases[arg] || cfg.pr_choices.find(c => c.toLowerCase() === arg) || null;
+  const id = CONSENT_ALIASES[arg] || cfg.pr_choices.find(c => c.toLowerCase() === arg) || null;
   return { license: id, missing: false };
 }
 
@@ -301,8 +317,19 @@ function renderManifest(top, entries, cfg) {
   return lines.join('\n');
 }
 
+// True when the folder is on disk or, in a sparse checkout, in HEAD.
+function topPresent(cfg, top) {
+  if (fs.existsSync(path.join(cfg.root, top))) return true;
+  try {
+    execFileSync('git', ['-C', cfg.root, 'cat-file', '-e', `HEAD:${top}`], { stdio: 'ignore' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Writes manifests for the given tops (all art tops when null); skips tops
-// absent on disk or with no entries. Returns written paths relative to root.
+// absent from the repository or with no entries. Returns written paths relative to root.
 function regenerateManifests(cfg, assignments, tops) {
   const byTop = new Map();
   for (const e of assignments) {
@@ -314,11 +341,11 @@ function regenerateManifests(cfg, assignments, tops) {
   const written = [];
   const wanted = tops ? tops : cfg.art_dirs;
   for (const top of wanted) {
-    const dir = path.join(cfg.root, top);
-    if (!fs.existsSync(dir)) continue;
+    if (!topPresent(cfg, top)) continue;
     const entries = byTop.get(top) || [];
     if (entries.length === 0) continue;
     const rel = path.posix.join(top, 'LICENSE_MANIFEST.md');
+    fs.mkdirSync(path.join(cfg.root, top), { recursive: true });
     fs.writeFileSync(path.join(cfg.root, rel), renderManifest(top, entries, cfg));
     written.push(rel);
   }
@@ -330,4 +357,5 @@ module.exports = {
   readJson, writeJson, loadLedgers, saveLedgers, recordFor, classifyPrFiles,
   licenseName, licenseLabel, allLicenseLabels, applyRenames, byFile, renderManifest, regenerateManifests,
   ledgerNamesFor, ledgerNameFor, awaitingRowsFor, parseConsentChoice, applyConsent,
+  consentAlias, consentChoiceLines,
 };
