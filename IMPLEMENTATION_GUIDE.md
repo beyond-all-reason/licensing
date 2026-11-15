@@ -131,8 +131,8 @@ to its own `.github/workflows/cla-check.yml` with `uses:` pointing at
 `beyond-all-reason/licensing/.github/workflows/cla-check.yml@main`
 (a tag or commit SHA pins a version). The stub owns the triggers, grants the job
 `contents`, `pull-requests`, `statuses` and `issues` write scopes, and passes
-`CLA_BOT_TOKEN`; each job of the called workflow narrows the scopes to what it
-needs. Jobs fetch `licensing.js` from this repository at `job.workflow_sha`, the
+`CLA_BOT_TOKEN` and `CLA_PUSH_SSH_KEY`; each job of the called workflow narrows
+the scopes to what it needs. Jobs fetch `licensing.js` from this repository at `job.workflow_sha`, the
 commit the stub pinned, into `.licensing/` next to the caller's checkout, so the
 scripts and the workflow always match and consumer repositories carry no copy.
 
@@ -153,6 +153,11 @@ has a permissions block and that every secret it reads is declared.
   protected branch and whose commits trigger no other workflows. An expired token
   fails every commit job at checkout with "could not read Username for
   'https://github.com'": renew it or delete the secret.
+- **`CLA_PUSH_SSH_KEY`** (optional): private half of a write deploy key. When set,
+  the four jobs that commit to the default branch check out and push over SSH
+  with it. For a branch whose rules let only deploy keys push without a pull
+  request. Pushes made with a deploy key trigger the repository's other
+  workflows.
 
 ---
 

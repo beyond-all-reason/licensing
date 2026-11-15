@@ -11,6 +11,9 @@ on:
       CLA_BOT_TOKEN:
         description: Bot identity token (GitHub App or PAT); the workflow token is used when unset
         required: false
+      CLA_PUSH_SSH_KEY:
+        description: Write deploy key for the bot's pushes, for a default branch that only deploy keys may push to
+        required: false
 
 jobs:
   # Job 1: classify the PR's files
@@ -398,6 +401,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.CLA_BOT_TOKEN || github.token }}
+          ssh-key: ${{ secrets.CLA_PUSH_SSH_KEY }}
 
       - name: Checkout licensing scripts (central repository)
         if: >-
@@ -764,6 +768,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.CLA_BOT_TOKEN || github.token }}
+          ssh-key: ${{ secrets.CLA_PUSH_SSH_KEY }}
 
       - name: Checkout licensing scripts (central repository)
         uses: actions/checkout@v4
@@ -828,6 +833,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.CLA_BOT_TOKEN || github.token }}
+          ssh-key: ${{ secrets.CLA_PUSH_SSH_KEY }}
 
       - name: Checkout licensing scripts (central repository)
         uses: actions/checkout@v4
@@ -923,6 +929,7 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           token: ${{ secrets.CLA_BOT_TOKEN || github.token }}
+          ssh-key: ${{ secrets.CLA_PUSH_SSH_KEY }}
 
       - name: Checkout licensing scripts (central repository)
         uses: actions/checkout@v4

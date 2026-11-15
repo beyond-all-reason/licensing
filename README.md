@@ -36,6 +36,8 @@ exercises the bot end to end; the stub calls the local workflow file.
 4. Give the bot an identity: a `CLA_BOT_TOKEN` secret (GitHub App installation
    token or a PAT with `contents: write`). Without it the workflow token is
    used, which cannot push to a protected branch.
+   Where only deploy keys may push to the default branch, pass a write deploy
+   key as `CLA_PUSH_SSH_KEY` instead.
 5. Point `CODEOWNERS` at the licensing paths.
 
 Contributors see one thing: a PR that adds art gets a licence choice in its
