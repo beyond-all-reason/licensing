@@ -126,7 +126,7 @@ jobs:
               console.log(`${c.artFiles.length} art file(s): nothing to license in this PR.`);
               return;
             }
-            if (/<!-- BAR-LICENSE-SELECTION -->/.test(prBody)) {
+            if (/<!-- BAR-LICENSE-SELECTION -->/.test(prBody) && !lib.sectionOutdated(prBody, c.needsLicense.length)) {
               core.setOutput('status', 'awaiting_choice');
               console.log(`${prAuthor}: section present, awaiting /confirm-license`);
               return;
@@ -148,41 +148,13 @@ jobs:
             const branch = context.payload.repository.default_branch;
             const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
 
-            // One checkbox line per configured choice; the id in backticks is what gets parsed back.
-            let choiceLines = '';
-            for (const id of cfg.pr_choices) {
-              const l = cfg.licenses[id] || {};
-              const doc = l.doc ? ` ([details](${repoUrl}/blob/${branch}/${l.doc}))` : '';
-              choiceLines += `- [ ] **${l.name || id}** \`${id}\` — ${l.blurb || ''}${doc}\n`;
-            }
-
-            let fileBlocks = '';
-            for (const f of unlicensed) {
-              fileBlocks +=
-                '<!-- BAR-FILE-BLOCK file="' + f + '" -->\n'
-                + '<details open>\n'
-                + '<summary><strong>' + f.replace(/`/g, '\\`') + '</strong></summary>\n\n'
-                + '**License** (tick exactly one):\n'
-                + choiceLines + '\n'
-                + '**Authorship** (tick only if submitting on behalf of another person):\n'
-                + '- [ ] I am submitting this file on behalf of another person\n'
-                + '  Original author: `@username` ← replace with their GitHub handle\n\n'
-                + '</details>\n\n'
-                + '<!-- END-BAR-FILE-BLOCK file="' + f + '" -->\n\n';
-            }
-
-            const section = '\n\n<!-- BAR-LICENSE-SELECTION -->\n---\n\n'
-              + '## \u{1F4CB} License Selection\n\n'
-              + '> Each file below has its own license and authorship section. Expand each one, tick your choices, then post `/confirm-license`.\n\n'
-              + '> You retain copyright in every case.\n\n'
-              + fileBlocks
-              + '<!-- END-BAR-LICENSE-SELECTION -->';
+            const section = lib.renderLicenseSection(cfg, unlicensed, `${repoUrl}/blob/${branch}`);
 
             await github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prNumber,
-              body: prBody + section,
+              body: lib.withLicenseSection(prBody, section),
             });
 
       - name: Post / update pointer comment
@@ -203,7 +175,7 @@ jobs:
             const legacy = JSON.parse(process.env.LEGACY || '[]');
 
             let body = `<!-- BAR-CLA-BOT -->\n@${prAuthor} — a **License Selection** section has been added to the PR description above ☝️\n\n`;
-            body += `Each new file has its own collapsible block. Expand each one, tick a license, then post \`/confirm-license\`.\n\n`;
+            body += `Tick one license under **All files** to cover every file, or expand a file to choose for it alone, then post \`/confirm-license\`.\n\n`;
             body += `### ❌ New files requiring a license declaration (${unlicensed.length})\n`;
             for (const f of unlicensed) body += `- \`${f}\`\n`;
             if (licensed.length > 0) {
@@ -464,42 +436,18 @@ jobs:
             }
 
             const prBody = pr.data.body || '';
-            const sectionMatch = prBody.match(/<!-- BAR-LICENSE-SELECTION -->([\s\S]*?)<!-- END-BAR-LICENSE-SELECTION -->/);
-            if (!sectionMatch) {
+            if (!lib.parseLicenseSection(prBody, cfg, prAuthor)) {
               await say(`@${prAuthor} — no license selection section found in the PR description. Push a new commit or re-open the PR so the bot re-injects it.`);
               return;
             }
 
-            // Per-file blocks: exactly one ticked license id, optional proxy author.
-            const fileBlockRe = /<!-- BAR-FILE-BLOCK file="([^"]+)" -->([\s\S]*?)<!-- END-BAR-FILE-BLOCK file="[^"]+" -->/g;
-            const tickedRe = /- \[x\] \*\*[^*\n]+\*\* `([^`\n]+)`/gi;
-            const selections = new Map();
-            const errors = [];
-            let block;
-            while ((block = fileBlockRe.exec(sectionMatch[1])) !== null) {
-              const filePath = block[1];
-              const content = block[2];
-              const ticked = [...content.matchAll(tickedRe)].map(m => m[1]).filter(id => cfg.pr_choices.includes(id));
-              if (ticked.length !== 1) {
-                errors.push({ file: filePath, problem: ticked.length ? 'more than one license box ticked' : 'no license box ticked' });
-                continue;
-              }
-              let creditedAuthor = null;
-              if (/- \[x\] I am submitting this file on behalf of another person/i.test(content)) {
-                const after = content.split(/Original author:/i)[1] || '';
-                const m = [...after.matchAll(/@`?([A-Za-z0-9][A-Za-z0-9-]*)`?/g)].map(x => x[1]).find(h => h.toLowerCase() !== 'username');
-                if (!m) { errors.push({ file: filePath, problem: 'proxy ticked but no original author handle filled in' }); continue; }
-                if (m.toLowerCase() === prAuthor.toLowerCase()) { errors.push({ file: filePath, problem: 'original author cannot be yourself' }); continue; }
-                creditedAuthor = m;
-              }
-              selections.set(filePath, { license: ticked[0], creditedAuthor });
-            }
+            const { selections, errors } = lib.parseLicenseSection(prBody, cfg, prAuthor);
             if (errors.length > 0) {
               await say(`@${prAuthor} — fix the following file(s) in the license selection, then post \`/confirm-license\` again:\n\n` + errors.map(e => `- \`${e.file}\`: ${e.problem}`).join('\n'));
               return;
             }
             if (selections.size === 0) {
-              await say(`@${prAuthor} — no file selection blocks found. Expand each file section, tick a license box, then post \`/confirm-license\` again.`);
+              await say(`@${prAuthor} — no file selection blocks found. Tick a license box, then post \`/confirm-license\` again.`);
               return;
             }
 

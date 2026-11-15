@@ -59,14 +59,17 @@ The workflow runs in the calling repository: `github.*` is the caller's context,
 
 1. **PR opened/updated with art files** → `detect-assets` job identifies art/audio
    files by extension and directory. `cla-check` injects a `<!-- BAR-LICENSE-SELECTION -->`
-   section into the contributor's own PR description with two checkboxes (license
-   bucket + scope), then posts a pointer comment.
+   section into the contributor's own PR description, then posts a pointer comment.
+   The section has one collapsed block per file with the license boxes and the
+   proxy box. With several files it starts with an **All files** block: a box
+   ticked there applies to every file whose own boxes are empty. An untouched
+   section in the earlier layout is replaced on the next push.
 
 2. **Contributor ticks boxes** → nothing fires. Boxes are read only on command.
 
 3. **Contributor posts `/confirm-license`** → `process-comment` job reads the PR body
    between section markers. Validates: commenter is PR author, exactly one license
-   box ticked, ≥ 10 min since last confirmation. On success: appends per-contributor
+   per file (its own box, else the All files box), ≥ 10 min since last confirmation. On success: appends per-contributor
    intent records to `cla-signatures.json` with `status: "intent"`, updates the bot
    comment, sets commit status green. **No file-level assignment is written yet.**
 

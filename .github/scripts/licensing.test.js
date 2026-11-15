@@ -87,6 +87,48 @@ assert.ok(md.includes('| `a.png` | `MIT` | Floris (submitted by PtaQQ) | #42 | 2
 assert.ok(md.includes('| `b.png` | _awaiting license_ | Winter | manual-audit | 2026-10-14 |'));
 assert.ok(md.endsWith('|\n'));
 
+// PR license section
+const secFiles = ['unitpics/a.png', 'unitpics/b.png', 'sounds/c.wav'];
+const section = lib.renderLicenseSection(cfg, secFiles, 'https://example.org/r/blob/main');
+assert.ok(section.includes('<!-- BAR-ALL-FILES -->'));
+assert.strictEqual((section.match(/<details>/g) || []).length, 3, 'several files start collapsed');
+const one = lib.renderLicenseSection(cfg, ['unitpics/a.png'], 'https://example.org/r/blob/main');
+assert.ok(!one.includes('<!-- BAR-ALL-FILES -->') && one.includes('<details open>'));
+const tick = (text, id, nth) => {
+  let seen = 0;
+  return text.replace(new RegExp('- \\[ \\] (\\*\\*[^*]+\\*\\* `' + id + '`)', 'g'), (m, rest) => (seen++ === nth ? `- [x] ${rest}` : m));
+};
+assert.strictEqual(lib.parseLicenseSection('no section here', cfg, 'me'), null);
+let parsed = lib.parseLicenseSection('intro' + section, cfg, 'me');
+assert.strictEqual(parsed.selections.size, 0);
+assert.strictEqual(parsed.errors.length, 3, 'nothing ticked: every file is a problem');
+parsed = lib.parseLicenseSection(tick(section, 'CC-BY-SA-4.0', 0), cfg, 'me');
+assert.deepStrictEqual(parsed.errors, []);
+assert.deepStrictEqual([...parsed.selections.keys()], secFiles);
+assert.ok([...parsed.selections.values()].every(s => s.license === 'CC-BY-SA-4.0' && s.creditedAuthor === null));
+parsed = lib.parseLicenseSection(tick(tick(section, 'CC-BY-SA-4.0', 0), 'LicenseRef-BAR-CLA-1.0', 2), cfg, 'me');
+assert.strictEqual(parsed.selections.get('unitpics/b.png').license, 'LicenseRef-BAR-CLA-1.0', 'a file choice wins');
+assert.strictEqual(parsed.selections.get('unitpics/a.png').license, 'CC-BY-SA-4.0');
+parsed = lib.parseLicenseSection(tick(tick(section, 'CC-BY-SA-4.0', 0), 'LicenseRef-BAR-CLA-1.0', 0), cfg, 'me');
+assert.deepStrictEqual(parsed.errors, [{ file: 'All files', problem: 'more than one license box ticked' }]);
+parsed = lib.parseLicenseSection(tick(section, 'LicenseRef-BAR-CLA-1.0', 1), cfg, 'me');
+assert.strictEqual(parsed.selections.size, 1);
+assert.strictEqual(parsed.errors.length, 2, 'files left empty without an all-files choice');
+const proxied = tick(section, 'CC-BY-SA-4.0', 0)
+  .replace('- [ ] I am submitting this file on behalf of another person\n  Original author: `@username`',
+    '- [x] I am submitting this file on behalf of another person\n  Original author: `@someone`');
+parsed = lib.parseLicenseSection(proxied, cfg, 'me');
+assert.strictEqual(parsed.selections.get('unitpics/a.png').creditedAuthor, 'someone');
+assert.strictEqual(parsed.selections.get('unitpics/b.png').creditedAuthor, null);
+const oldStyle = section.replace(/<!-- BAR-ALL-FILES -->[\s\S]*?<!-- END-BAR-ALL-FILES -->\n\n/, '');
+assert.strictEqual(lib.sectionOutdated(oldStyle, 3), true);
+assert.strictEqual(lib.sectionOutdated(tick(oldStyle, 'CC-BY-SA-4.0', 0), 3), false, 'ticked sections are left alone');
+assert.strictEqual(lib.sectionOutdated(section, 3), false);
+assert.strictEqual(lib.sectionOutdated(one, 1), false);
+const swapped = lib.withLicenseSection('My PR text' + oldStyle + '\n', section);
+assert.ok(swapped.startsWith('My PR text\n\n<!-- BAR-LICENSE-SELECTION -->'));
+assert.strictEqual((swapped.match(/<!-- BAR-LICENSE-SELECTION -->/g) || []).length, 1);
+
 // Consent helpers
 assert.deepStrictEqual(lib.ledgerNamesFor('PtaQQ', cfg), ['PtaQQ', 'PtaQ']);
 assert.deepStrictEqual(lib.ledgerNamesFor('nobody', cfg), ['nobody']);

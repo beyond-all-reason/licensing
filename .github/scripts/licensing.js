@@ -240,6 +240,89 @@ function awaitingRowsFor(login, ledgers, cfg) {
   return ledgers.assignments.filter(a => !a.license && names.has((a.contributor || '').toLowerCase()));
 }
 
+const SECTION_RE = /<!-- BAR-LICENSE-SELECTION -->([\s\S]*?)<!-- END-BAR-LICENSE-SELECTION -->/;
+const ALL_FILES_RE = /<!-- BAR-ALL-FILES -->([\s\S]*?)<!-- END-BAR-ALL-FILES -->/;
+const TICKED_RE = /- \[x\] \*\*[^*\n]+\*\* `([^`\n]+)`/gi;
+
+function choiceBoxLines(cfg, docBase) {
+  return cfg.pr_choices.map(id => {
+    const l = cfg.licenses[id] || {};
+    const doc = l.doc ? ` ([details](${docBase}/${l.doc}))` : '';
+    return `- [ ] **${l.name || id}** \`${id}\` — ${l.blurb || ''}${doc}\n`;
+  }).join('');
+}
+
+// PR-body section: a collapsed block per file and, for several files, one choice for all.
+function renderLicenseSection(cfg, files, docBase) {
+  const boxes = choiceBoxLines(cfg, docBase);
+  const several = files.length > 1;
+  let out = '\n\n<!-- BAR-LICENSE-SELECTION -->\n---\n\n## \u{1F4CB} License Selection\n\n';
+  out += several
+    ? '> Tick one license under **All files** to use it for every file, or expand a file to choose for it alone; a choice on a file wins. Then post `/confirm-license`.\n\n'
+    : '> Tick a license for the file below, then post `/confirm-license`.\n\n';
+  out += '> You retain copyright in every case.\n\n';
+  if (several) {
+    out += `<!-- BAR-ALL-FILES -->\n**All files (${files.length})** (tick one to use it for every file):\n${boxes}\n<!-- END-BAR-ALL-FILES -->\n\n`;
+  }
+  for (const f of files) {
+    out += `<!-- BAR-FILE-BLOCK file="${f}" -->\n`
+      + `<details${several ? '' : ' open'}>\n`
+      + `<summary><strong>${f.replace(/`/g, '\\`')}</strong></summary>\n\n`
+      + `**License** (tick exactly one${several ? ', or leave empty to follow All files' : ''}):\n${boxes}\n`
+      + '**Authorship** (tick only if submitting on behalf of another person):\n'
+      + '- [ ] I am submitting this file on behalf of another person\n'
+      + '  Original author: `@username` ← replace with their GitHub handle\n\n'
+      + '</details>\n\n'
+      + `<!-- END-BAR-FILE-BLOCK file="${f}" -->\n\n`;
+  }
+  return out + '<!-- END-BAR-LICENSE-SELECTION -->';
+}
+
+// Puts the section at the end of the body, replacing one already there.
+function withLicenseSection(body, section) {
+  return (body || '').replace(SECTION_RE, '').trimEnd() + section;
+}
+
+// True for an untouched section without the all-files choice on a PR with several files.
+function sectionOutdated(body, fileCount) {
+  const m = (body || '').match(SECTION_RE);
+  return !!m && fileCount > 1 && !ALL_FILES_RE.test(m[1]) && !/- \[x\]/i.test(m[1]);
+}
+
+// Reads the ticked boxes: null without a section, else selections per file and the problems found.
+function parseLicenseSection(body, cfg, prAuthor) {
+  const m = (body || '').match(SECTION_RE);
+  if (!m) return null;
+  const ids = text => [...text.matchAll(TICKED_RE)].map(x => x[1]).filter(id => cfg.pr_choices.includes(id));
+  const selections = new Map();
+  const errors = [];
+  const all = m[1].match(ALL_FILES_RE);
+  const bulk = all ? ids(all[1]) : [];
+  if (bulk.length > 1) errors.push({ file: 'All files', problem: 'more than one license box ticked' });
+  const blockRe = /<!-- BAR-FILE-BLOCK file="([^"]+)" -->([\s\S]*?)<!-- END-BAR-FILE-BLOCK file="[^"]+" -->/g;
+  let block;
+  while ((block = blockRe.exec(m[1])) !== null) {
+    const [, file, content] = block;
+    const ticked = ids(content);
+    if (ticked.length > 1) { errors.push({ file, problem: 'more than one license box ticked' }); continue; }
+    const license = ticked[0] || (bulk.length === 1 ? bulk[0] : null);
+    if (!license) {
+      if (bulk.length === 0) errors.push({ file, problem: 'no license box ticked' });
+      continue;
+    }
+    let creditedAuthor = null;
+    if (/- \[x\] I am submitting this file on behalf of another person/i.test(content)) {
+      const after = content.split(/Original author:/i)[1] || '';
+      const handle = [...after.matchAll(/@`?([A-Za-z0-9][A-Za-z0-9-]*)`?/g)].map(x => x[1]).find(h => h.toLowerCase() !== 'username');
+      if (!handle) { errors.push({ file, problem: 'proxy ticked but no original author handle filled in' }); continue; }
+      if (handle.toLowerCase() === (prAuthor || '').toLowerCase()) { errors.push({ file, problem: 'original author cannot be yourself' }); continue; }
+      creditedAuthor = handle;
+    }
+    selections.set(file, { license, creditedAuthor });
+  }
+  return { selections, errors };
+}
+
 // Short words accepted after /confirm-license; the first one per license is shown to people.
 const CONSENT_ALIASES = { cla: 'LicenseRef-BAR-CLA-1.0', 'cc-by-sa': 'CC-BY-SA-4.0', 'bar-cla': 'LicenseRef-BAR-CLA-1.0', cc: 'CC-BY-SA-4.0' };
 
@@ -358,4 +441,5 @@ module.exports = {
   licenseName, licenseLabel, allLicenseLabels, applyRenames, byFile, renderManifest, regenerateManifests,
   ledgerNamesFor, ledgerNameFor, awaitingRowsFor, parseConsentChoice, applyConsent,
   consentAlias, consentChoiceLines,
+  renderLicenseSection, withLicenseSection, sectionOutdated, parseLicenseSection,
 };
