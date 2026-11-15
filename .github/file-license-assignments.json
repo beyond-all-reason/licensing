@@ -108,6 +108,13 @@
     "source": "manual-audit"
   },
   {
+    "file": "music/test/stub_test.png",
+    "license": "LicenseRef-BAR-CLA-1.0",
+    "contributor": "PtaQ",
+    "pr": 1,
+    "date": "2026-11-15"
+  },
+  {
     "contributor": "lostsquirrel1",
     "date": "2026-05-12",
     "file": "test/cortex2.jpg",
