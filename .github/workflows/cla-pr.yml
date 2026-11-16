@@ -1,0 +1,247 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+name: CLA PR Check (reusable)
+
+# Called from a stub workflow in each repository on opened and updated PRs.
+# Rules come from the caller's .github/licensing.json; licensing.js from this
+# repository at the commit the caller pinned.
+
+on:
+  workflow_call:
+
+jobs:
+  # One job, so a PR shows one row.
+  check:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      statuses: write
+    steps:
+      - name: Checkout licensing rules and ledgers (base branch)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: /.github/
+          sparse-checkout-cone-mode: false
+
+      - name: Checkout licensing scripts (central repository)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: .licensing
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Check for art/audio assets
+        id: check-files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const lib = require(`${process.env.GITHUB_WORKSPACE}/.licensing/.github/scripts/licensing.js`);
+            const cfg = lib.loadConfig();
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+            const art = files.filter(f => f.status !== 'removed' && lib.isArt(f.filename, cfg));
+            const modified = art.filter(f => f.status === 'modified');
+            const list = arr => arr.length > 10
+              ? arr.slice(0, 10).map(f => f.filename).join('\n') + `\n... and ${arr.length - 10} more files`
+              : arr.map(f => f.filename).join('\n');
+            core.setOutput('has_art_assets', art.length > 0 ? 'true' : 'false');
+            core.setOutput('art_files_count', String(art.length));
+            core.setOutput('has_replaced_art_assets', modified.length > 0 ? 'true' : 'false');
+            core.setOutput('replaced_art_files_list', list(modified));
+            console.log(`${art.length} art file(s), ${modified.length} modified existing asset(s)`);
+
+      - name: Determine license status per file
+        if: steps.check-files.outputs.has_art_assets == 'true'
+        id: cla-status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const lib = require(`${process.env.GITHUB_WORKSPACE}/.licensing/.github/scripts/licensing.js`);
+            const cfg = lib.loadConfig();
+            const ledgers = lib.loadLedgers(cfg);
+            const prNumber = context.payload.pull_request.number;
+            const prAuthor = context.payload.pull_request.user.login;
+            const prBody = context.payload.pull_request.body || '';
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              per_page: 100,
+            });
+            const c = lib.classifyPrFiles(files, ledgers, cfg);
+
+            core.setOutput('licensed_files', JSON.stringify(c.licensed));
+            core.setOutput('unlicensed_files', JSON.stringify(c.needsLicense));
+            core.setOutput('legacy_files', JSON.stringify(c.legacy));
+            core.setOutput('licensed_count', String(c.licensed.length));
+            core.setOutput('unlicensed_count', String(c.needsLicense.length));
+
+            if (c.needsLicense.length === 0) {
+              core.setOutput('status', 'all_licensed');
+              console.log(`${c.artFiles.length} art file(s): nothing to license in this PR.`);
+              return;
+            }
+            if (/<!-- BAR-LICENSE-SELECTION -->/.test(prBody) && !lib.sectionOutdated(prBody, c.needsLicense.length)) {
+              core.setOutput('status', 'awaiting_choice');
+              console.log(`${prAuthor}: section present, awaiting /confirm-license`);
+              return;
+            }
+            core.setOutput('status', 'needs_injection');
+
+      - name: Inject license selection into PR body
+        if: steps.cla-status.outputs.status == 'needs_injection'
+        uses: actions/github-script@v7
+        env:
+          UNLICENSED: ${{ steps.cla-status.outputs.unlicensed_files }}
+        with:
+          script: |
+            const lib = require(`${process.env.GITHUB_WORKSPACE}/.licensing/.github/scripts/licensing.js`);
+            const cfg = lib.loadConfig();
+            const prNumber = context.payload.pull_request.number;
+            const prBody = context.payload.pull_request.body || '';
+            const unlicensed = JSON.parse(process.env.UNLICENSED || '[]');
+            const branch = context.payload.repository.default_branch;
+            const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
+
+            const section = lib.renderLicenseSection(cfg, unlicensed, `${repoUrl}/blob/${branch}`);
+
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber,
+              body: lib.withLicenseSection(prBody, section),
+            });
+
+      - name: Post / update pointer comment
+        if: >-
+          steps.cla-status.outputs.status == 'needs_injection' ||
+          steps.cla-status.outputs.status == 'awaiting_choice'
+        uses: actions/github-script@v7
+        env:
+          UNLICENSED: ${{ steps.cla-status.outputs.unlicensed_files }}
+          LICENSED: ${{ steps.cla-status.outputs.licensed_files }}
+          LEGACY: ${{ steps.cla-status.outputs.legacy_files }}
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prAuthor = context.payload.pull_request.user.login;
+            const unlicensed = JSON.parse(process.env.UNLICENSED || '[]');
+            const licensed = JSON.parse(process.env.LICENSED || '[]');
+            const legacy = JSON.parse(process.env.LEGACY || '[]');
+
+            let body = `<!-- BAR-CLA-BOT -->\n@${prAuthor} — a **License Selection** section has been added to the PR description above ☝️\n\n`;
+            body += `Tick one license under **All files** to cover every file, or expand a file to choose for it alone, then post \`/confirm-license\`.\n\n`;
+            body += `### ❌ New files requiring a license declaration (${unlicensed.length})\n`;
+            for (const f of unlicensed) body += `- \`${f}\`\n`;
+            if (licensed.length > 0) {
+              body += `\n### ✅ Files already licensed (${licensed.length})\n`;
+              for (const lf of licensed) {
+                const moved = lf.renamed_from ? ` (moved from \`${lf.renamed_from}\`)` : '';
+                body += `- \`${lf.file}\` — \`${lf.license}\` (recorded for ${lf.author})${moved}\n`;
+              }
+            }
+            if (legacy.length > 0) {
+              body += `\n### ℹ️ Existing assets edited, license unchanged (${legacy.length})\n`;
+              for (const lf of legacy) {
+                const note = lf.status === 'awaiting'
+                  ? `awaiting consent from ${lf.author}`
+                  : 'no record yet; covered by the retroactive audit';
+                body += `- \`${lf.file}\` — ${note}\n`;
+              }
+              body += `\nIf you rebuilt any of these from scratch, say so with \`I replaced these files from scratch\`.\n`;
+            }
+            body += `\nPost a comment with:\n\`\`\`\n/confirm-license\n\`\`\`\nEach file can have a different license and a different original author.`;
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber,
+            });
+            const existing = comments.data.find(c => c.user.type === 'Bot' && c.body.includes('<!-- BAR-CLA-BOT -->'));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+            }
+
+      - name: Set commit status
+        if: steps.check-files.outputs.has_art_assets == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const lib = require(`${process.env.GITHUB_WORKSPACE}/.licensing/.github/scripts/licensing.js`);
+            const cfg = lib.loadConfig();
+            const status = '${{ steps.cla-status.outputs.status }}';
+            const allLicensed = status === 'all_licensed';
+            const unlicensedCount = parseInt('${{ steps.cla-status.outputs.unlicensed_count }}', 10) || 0;
+            const totalCount = parseInt('${{ steps.check-files.outputs.art_files_count }}', 10) || 0;
+            const branch = context.payload.repository.default_branch;
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: allLicensed ? 'success' : 'failure',
+              target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/blob/${branch}/${cfg.legal_dir}/CLA.md`,
+              description: allLicensed
+                ? `All ${totalCount} art file(s) covered`
+                : `${unlicensedCount} of ${totalCount} art file(s) need a license — tick a box then post /confirm-license`,
+              context: cfg.status_context,
+            });
+
+      - name: Set passing status for code-only PR
+        if: steps.check-files.outputs.has_art_assets != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const lib = require(`${process.env.GITHUB_WORKSPACE}/.licensing/.github/scripts/licensing.js`);
+            const cfg = lib.loadConfig();
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.payload.pull_request.head.sha,
+              state: 'success',
+              description: 'No art/audio assets detected — code license applies',
+              context: cfg.status_context,
+            });
+
+      - name: Apply label and post replacement warning
+        if: steps.check-files.outputs.has_replaced_art_assets == 'true'
+        uses: actions/github-script@v7
+        env:
+          REPLACED: ${{ steps.check-files.outputs.replaced_art_files_list }}
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prAuthor = context.payload.pull_request.user.login;
+            const prBody = context.payload.pull_request.body || '';
+            const declaredFullReplacement = /- \[x\] I created all modified files entirely from scratch/i.test(prBody);
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber,
+            });
+            if (comments.data.find(c => c.user.type === 'Bot' && c.body.includes('<!-- BAR-ASSET-REPLACE-BOT -->'))) return;
+
+            const fileList = (process.env.REPLACED || '').split('\n')
+              .filter(f => f.trim())
+              .map(f => '- `' + f.trim() + '`')
+              .join('\n');
+
+            const label = declaredFullReplacement ? 'asset: replaced' : 'needs-licensing-review';
+            try {
+              await github.rest.issues.addLabels({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, labels: [label] });
+            } catch (e) {
+              console.log(`Could not add label: ${e.message}`);
+            }
+            const body = declaredFullReplacement
+              ? `<!-- BAR-ASSET-REPLACE-BOT -->\n### Full Replacement Declared\n\n@${prAuthor} has declared that all modified files were created entirely from scratch. License ownership will be assigned to @${prAuthor} for these files:\n\n${fileList}\n\nA maintainer will do a final confirmation before merge.`
+              : `<!-- BAR-ASSET-REPLACE-BOT -->\n### Modified Existing Art Assets Detected\n\n@${prAuthor}, this PR modifies **existing** art/audio files:\n\n${fileList}\n\n**Please clarify the nature of your changes** by replying with one of:\n\n- If you **built these files entirely from scratch** (no prior author's work remains), reply with:\n  \`\`\`\n  I replaced these files from scratch\n  \`\`\`\n  License ownership will be reassigned to you.\n\n- If you **fixed, tweaked, or iterated** on someone else's work, no action is needed.\n  The original author's license will be preserved and a maintainer will review.\n\nThis PR has been labelled **needs-licensing-review**.`;
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
